@@ -1,5 +1,3 @@
-'use strict';
-
 module.exports = function(dependencies) {
   const i18n = dependencies('i18n');
 

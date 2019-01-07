@@ -7,7 +7,7 @@ const path = require('path');
 const testConfig = require('../config/servers-conf');
 const basePath = path.resolve(__dirname + '/../../node_modules/linagora-rse');
 const backendPath = path.normalize(__dirname + '/../../backend');
-const MODULE_NAME = 'linagora.esn.seed';
+const MODULE_NAME = 'linagora.esn.videoconference.calendar';
 let rse;
 
 before(function(done) {

@@ -1,10 +1,7 @@
-'use strict';
-
 module.exports = function(dependencies) {
-
-  const models = require('./db')(dependencies);
+  const processors = require('./email-processors')(dependencies);
 
   return {
-    models
+    processors
   };
 };

@@ -2,7 +2,7 @@
 
 const request = require('supertest');
 const expect = require('chai').expect;
-const MODULE_NAME = 'linagora.esn.seed';
+const MODULE_NAME = 'linagora.esn.videoconference.calendar';
 
 describe('The example API', function() {
   let user, app;
