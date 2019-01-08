@@ -1,20 +1,70 @@
-module.exports = dependencies => {
+const ICAL = require('@linagora/ical.js');
 
+module.exports = dependencies => {
   const logger = dependencies('logger');
-  const calendar = dependencies('calendar');
   const videoconference = dependencies('videoconference');
 
-  return function process({ email, content }) {
-    logger.info('Processing REQUEST event', email, content);
+  return function process({ attendeeAsUser, attendeeEmail, ics, domain }) {
+    logger.info('Processing REQUEST event');
 
-    return Promise.resolve({ email, content });
-    // -1. Check if there is a conference in the ICS, if not, resolve as is
-    // 0. generate link for external user if needed
-    // 1. Add conference link in ICS description
-    // 2. Update the content with the ICS link
+    const isExternalUser = !attendeeAsUser;
+    const vcalendar = ICAL.Component.fromString(ics);
+    const vevent = vcalendar.getFirstSubcomponent('vevent');
+    const conferenceLink = getConferenceLink(vevent);
 
-    // const vcalendar = ICAL.Component.fromString(icalendar);
-    // const vevent = vcalendar.getFirstSubcomponent('vevent');
-    // vevent.getFirstPropertyValue('X-OPENPAAS-VIDEOCONFERENCE')
+    if (!conferenceLink) {
+      return Promise.resolve({ ics, attendeeAsUser, attendeeEmail, domain });
+    }
+
+    const getLink = isExternalUser ? generatePublicLink(conferenceLink, domain) : Promise.resolve(conferenceLink);
+    const patchEvent = isExternalUser ? patchEventForExternalUser : patchEventForInternalUser;
+
+    return getLink
+      .then(updatedLink => patchEvent(vevent, updatedLink))
+      .then(() => ({ ics: vcalendar.toString() }))
+      .catch(err => {
+        logger.error('Can not generate public conference link', err);
+
+        return { ics: vcalendar.toString() };
+      });
+  };
+
+  function getConferenceLink(vevent) {
+    return vevent.getFirstPropertyValue('x-openpaas-videoconference');
   }
-}
+
+  function generatePublicLink(initialLink, domain) {
+    const conferenceName = initialLink.split('/').pop();
+
+    return videoconference.lib.videoconference.create({ conferenceName, domainId: domain._id, type: 'public' })
+      .then(conference => videoconference.lib.videoconference.getUrls(conference))
+      .then(urls => (urls.public));
+  }
+
+  function patchEventForExternalUser(vevent, link) {
+    setConferenceLink(vevent, link);
+    updateDescription(vevent, link);
+  }
+
+  function patchEventForInternalUser(vevent, link) {
+    updateDescription(vevent, link);
+  }
+
+  function updateDescription(vevent, link) {
+    const description = vevent.getFirstPropertyValue('description');
+
+    if (!description) {
+      vevent.updatePropertyWithValue('description', generateDescription('', link));
+    } else {
+      vevent.updatePropertyWithValue('description', generateDescription(description, link));
+    }
+  }
+
+  function generateDescription(initialDescription, link) {
+    return `${initialDescription}\n\n*#*#*#*#*#\nPlease do not edit this section of the description.\n\nThis event contains a videoconference.\nJoin: ${link}\n*#*#*#*#*#`;
+  }
+
+  function setConferenceLink(vevent, link) {
+    vevent.updatePropertyWithValue('x-openpaas-videoconference', link);
+  }
+};

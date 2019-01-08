@@ -7,7 +7,6 @@ module.exports = dependencies => {
   };
 
   function init() {
-    console.log(calendar.invitation)
     calendar.invitation.processors.register(['REQUEST'], request);
   }
 };
