@@ -4,7 +4,7 @@ module.exports = dependencies => {
   const logger = dependencies('logger');
   const videoconference = dependencies('videoconference');
 
-  return function process({ attendeeAsUser, attendeeEmail, ics, domain }) {
+  return function process({ attendeeAsUser, attendeeEmail, ics, domain, emailContentOverrides = {}}) {
     logger.info('Processing REQUEST event');
 
     const isExternalUser = !attendeeAsUser;
@@ -13,19 +13,26 @@ module.exports = dependencies => {
     const conferenceLink = getConferenceLink(vevent);
 
     if (!conferenceLink) {
-      return Promise.resolve({ ics, attendeeAsUser, attendeeEmail, domain });
+      return Promise.resolve({ ics, attendeeAsUser, attendeeEmail, domain, emailContentOverrides });
     }
+
+    emailContentOverrides.description = getDescription(vevent);
 
     const getLink = isExternalUser ? generatePublicLink(conferenceLink, domain) : Promise.resolve(conferenceLink);
     const patchEvent = isExternalUser ? patchEventForExternalUser : patchEventForInternalUser;
 
     return getLink
+      .then(updatedLink => {
+        emailContentOverrides.videoconferenceLink = updatedLink;
+
+        return updatedLink;
+      })
       .then(updatedLink => patchEvent(vevent, updatedLink))
-      .then(() => ({ ics: vcalendar.toString() }))
+      .then(() => ({ ics: vcalendar.toString(), attendeeAsUser, attendeeEmail, domain, emailContentOverrides }))
       .catch(err => {
         logger.error('Can not generate public conference link', err);
 
-        return { ics: vcalendar.toString() };
+        return { ics: vcalendar.toString(), attendeeAsUser, attendeeEmail, domain, emailContentOverrides };
       });
   };
 
@@ -51,13 +58,17 @@ module.exports = dependencies => {
   }
 
   function updateDescription(vevent, link) {
-    const description = vevent.getFirstPropertyValue('description');
+    const description = getDescription(vevent);
 
     if (!description) {
       vevent.updatePropertyWithValue('description', generateDescription('', link));
     } else {
       vevent.updatePropertyWithValue('description', generateDescription(description, link));
     }
+  }
+
+  function getDescription(vevent) {
+    return vevent.getFirstPropertyValue('description');
   }
 
   function generateDescription(initialDescription, link) {
