@@ -16,16 +16,7 @@
     .form-group.event-subelement-flex-container
       .input-group
         span.input-group-addon
-      div(
-        ng-show="$ctrl.videoconference() === $ctrl.videoconferenceOptions.OPENPAAS_VIDEOCONFERENCE"
-      )
-        .fg-line.video-conf-url
-          label.col-form-label(for="room-name") {{ $ctrl.videoConfHostname }}
-          input#room-name.form-control(
-            required
-            type='text' ng-model="$ctrl.roomName"
-            ng-model-options="{getterSetter: true}"
-          )
+      div(ng-show="$ctrl.videoconference() === $ctrl.videoconferenceOptions.OPENPAAS_VIDEOCONFERENCE")
         .input-group
           a(
               title="{{ $ctrl.event.xOpenpaasVideoconference }}"
