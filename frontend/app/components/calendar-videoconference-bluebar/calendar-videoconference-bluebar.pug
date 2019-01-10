@@ -1,0 +1,9 @@
+.cal-videoconference(ng-if="$ctrl.videoconference()")
+  a.btn.btn-link.button(
+    title='{{ $ctrl.videoconference() }}'
+    ng-href='{{ $ctrl.videoconference() }}'
+    target='_blank'
+    rel='noopener noreferrer'
+  )
+    i.mdi.mdi-video
+    span #{__('Join the meeting video conference')}
