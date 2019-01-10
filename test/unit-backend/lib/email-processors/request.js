@@ -3,7 +3,7 @@ const sinon = require('sinon');
 const ICAL = require('@linagora/ical.js');
 
 describe('The request email processor', function() {
-  let attendeeAsUser, attendeeEmail, videoconferenceModule, domain;
+  let attendeeAsUser, attendeeEmail, videoconferenceModule, calendarModule, domain;
 
   function getVEvent(ics) {
     return ICAL.Component.fromString(ics).getFirstSubcomponent('vevent');
@@ -26,8 +26,20 @@ describe('The request email processor', function() {
       }
     };
 
+    calendarModule = {
+      i18n: {
+        getI18nForMailer: sinon.stub().returns(Promise.resolve({
+          i18n: {
+            __: param => param.phrase
+          },
+          locale: 'EN'
+        }))
+      }
+    };
+
     this.requireModule = function() {
       this.moduleHelpers.addDep('videoconference', videoconferenceModule);
+      this.moduleHelpers.addDep('calendar', calendarModule);
 
       return require('../../../../backend/lib/email-processors/request')(this.moduleHelpers.dependencies);
     };

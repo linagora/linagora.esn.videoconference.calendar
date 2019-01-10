@@ -3,6 +3,7 @@ const ICAL = require('@linagora/ical.js');
 module.exports = dependencies => {
   const logger = dependencies('logger');
   const videoconference = dependencies('videoconference');
+  const calendar = dependencies('calendar');
 
   return function process({ attendeeAsUser, attendeeEmail, ics, domain, emailContentOverrides = {}}) {
     logger.info('Processing REQUEST event');
@@ -27,7 +28,7 @@ module.exports = dependencies => {
 
         return updatedLink;
       })
-      .then(updatedLink => patchEvent(vevent, updatedLink))
+      .then(updatedLink => patchEvent(vevent, updatedLink, attendeeAsUser))
       .then(() => ({ ics: vcalendar.toString(), attendeeAsUser, attendeeEmail, domain, emailContentOverrides }))
       .catch(err => {
         logger.error('Can not generate public conference link', err);
@@ -50,32 +51,37 @@ module.exports = dependencies => {
 
   function patchEventForExternalUser(vevent, link) {
     setConferenceLink(vevent, link);
-    updateDescription(vevent, link);
+
+    return updateDescription(vevent, link);
   }
 
-  function patchEventForInternalUser(vevent, link) {
-    updateDescription(vevent, link);
+  function patchEventForInternalUser(vevent, link, attendee) {
+    return updateDescription(vevent, link, attendee);
   }
 
-  function updateDescription(vevent, link) {
+  function updateDescription(vevent, link, attendee) {
     const description = getDescription(vevent);
 
-    if (!description) {
-      vevent.updatePropertyWithValue('description', generateDescription('', link));
-    } else {
-      vevent.updatePropertyWithValue('description', generateDescription(description, link));
-    }
+    return generateDescription(description || '', link, attendee).then(translated => vevent.updatePropertyWithValue('description', translated));
   }
 
   function getDescription(vevent) {
     return vevent.getFirstPropertyValue('description');
   }
 
-  function generateDescription(initialDescription, link) {
-    return `${initialDescription}\n\n*#*#*#*#*#\nPlease do not edit this section of the description.\n\nThis event contains a videoconference.\nJoin: ${link}\n*#*#*#*#*#`;
+  function generateDescription(initialDescription, link, attendee) {
+    return translate(attendee).then(({ please, contains, join }) => `${initialDescription}\n\n*#*#*#*#*#\n${please}.\n\n${contains}.\n${join}: ${link}\n*#*#*#*#*#`);
   }
 
   function setConferenceLink(vevent, link) {
     vevent.updatePropertyWithValue('x-openpaas-videoconference', link);
+  }
+
+  function translate(attendee) {
+    return calendar.i18n.getI18nForMailer(attendee).then(i18nConfiguration => ({
+      please: i18nConfiguration.i18n.__({phrase: 'Please do not edit this section of the description', locale: i18nConfiguration.locale}),
+      contains: i18nConfiguration.i18n.__({phrase: 'This event contains a videoconference', locale: i18nConfiguration.locale}),
+      join: i18nConfiguration.i18n.__({phrase: 'Join the videoconference', locale: i18nConfiguration.locale})
+    }));
   }
 };
