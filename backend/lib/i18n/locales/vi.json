@@ -3,5 +3,6 @@
   "This event contains a videoconference": "Sự kiện này có chứa cầu truyền hình",
   "Join the videoconference": "Tham gia hội nghị truyền hình",
   "Video conference": "Video conference",
-  "Join the meeting video conference": "Tham gia cuộc họp trực tuyên"
+  "No video conference": "Không có hội nghị video",
+  "OpenPaaS video conference": "Hội nghị video OpenPaaS"
 }
