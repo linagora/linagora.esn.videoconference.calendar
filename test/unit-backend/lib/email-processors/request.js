@@ -38,7 +38,6 @@ describe('The request email processor', function() {
     };
 
     this.requireModule = function() {
-      this.moduleHelpers.addDep('videoconference', videoconferenceModule);
       this.moduleHelpers.addDep('calendar', calendarModule);
 
       return require('../../../../backend/lib/email-processors/request')(this.moduleHelpers.dependencies);
@@ -53,11 +52,9 @@ describe('The request email processor', function() {
     it('should resolve with input data when there is no conference in ICS', function(done) {
       const ics = getIcs();
 
-      this.requireModule()({ics, attendeeAsUser, attendeeEmail, domain})
+      this.requireModule()({ ics, attendeeAsUser, attendeeEmail, domain })
         .then(result => {
           expect(result).to.deep.equal({ ics, attendeeAsUser, attendeeEmail, domain, emailContentOverrides: {} });
-          expect(videoconferenceModule.lib.videoconference.create).to.not.have.been.called;
-          expect(videoconferenceModule.lib.videoconference.getUrls).to.not.have.been.called;
           done();
         })
         .catch(done);
@@ -66,21 +63,14 @@ describe('The request email processor', function() {
     it('should generate a public link for external user', function(done) {
       const videoConferenceURL = 'https://open-paas.org/videoconference/foobar';
       const ics = getIcs(videoConferenceURL);
-      const conference = {};
-      const urls = { public: 'https://open-paas.org/videoconference/public/bazqux' };
-
-      videoconferenceModule.lib.videoconference.create.returns(Promise.resolve(conference));
-      videoconferenceModule.lib.videoconference.getUrls.returns(Promise.resolve(urls));
 
       this.requireModule()({ ics, attendeeEmail, domain })
         .then(({ ics, emailContentOverrides }) => {
           const vevent = getVEvent(ics);
 
-          expect(emailContentOverrides).to.deep.equal({ videoconferenceLink: urls.public, description: null });
-          expect(vevent.getFirstPropertyValue('x-openpaas-videoconference')).to.equal(urls.public);
-          expect(vevent.getFirstPropertyValue('description')).to.contains(urls.public);
-          expect(videoconferenceModule.lib.videoconference.create).to.have.been.calledWith({ conferenceName: 'foobar', domainId: domain._id, type: 'public' });
-          expect(videoconferenceModule.lib.videoconference.getUrls).to.have.been.called;
+          expect(emailContentOverrides).to.deep.equal({ videoconferenceLink: videoConferenceURL, description: null });
+          expect(vevent.getFirstPropertyValue('x-openpaas-videoconference')).to.equal(videoConferenceURL);
+          expect(vevent.getFirstPropertyValue('description')).to.contains(videoConferenceURL);
           done();
         })
         .catch(done);
@@ -99,8 +89,6 @@ describe('The request email processor', function() {
 
           expect(emailContentOverrides).to.deep.equal({ videoconferenceLink: videoConferenceURL, description: null });
           expect(vevent.getFirstPropertyValue('x-openpaas-videoconference')).to.equal(videoConferenceURL);
-          expect(videoconferenceModule.lib.videoconference.create).to.not.have.been.called;
-          expect(videoconferenceModule.lib.videoconference.getUrls).to.not.have.been.called;
           done();
         })
         .catch(done);
@@ -109,18 +97,13 @@ describe('The request email processor', function() {
     it('should set a description if there is no description in ICS', function(done) {
       const videoConferenceURL = 'https://open-paas.org/videoconference/foobar';
       const ics = getIcs(videoConferenceURL);
-      const conference = {};
 
-      videoconferenceModule.lib.videoconference.create.returns(Promise.resolve(conference));
-      videoconferenceModule.lib.videoconference.getUrls.returns(Promise.resolve());
       this.requireModule()({ ics, attendeeAsUser, attendeeEmail, domain })
         .then(({ ics, emailContentOverrides }) => {
           const vevent = getVEvent(ics);
 
           expect(emailContentOverrides).to.deep.equal({ videoconferenceLink: videoConferenceURL, description: null });
           expect(vevent.getFirstPropertyValue('description')).to.contain(videoConferenceURL);
-          expect(videoconferenceModule.lib.videoconference.create).to.not.have.been.called;
-          expect(videoconferenceModule.lib.videoconference.getUrls).to.not.have.been.called;
           done();
         })
         .catch(done);
@@ -130,10 +113,7 @@ describe('The request email processor', function() {
       const videoConferenceURL = 'https://open-paas.org/videoconference/foobar';
       const description = 'This is my description';
       const ics = getIcs(videoConferenceURL, description);
-      const conference = {};
 
-      videoconferenceModule.lib.videoconference.create.returns(Promise.resolve(conference));
-      videoconferenceModule.lib.videoconference.getUrls.returns(Promise.resolve());
       this.requireModule()({ ics, attendeeAsUser, attendeeEmail, domain })
         .then(({ ics, emailContentOverrides }) => {
           const vevent = getVEvent(ics);
@@ -141,8 +121,6 @@ describe('The request email processor', function() {
           expect(emailContentOverrides).to.deep.equal({ videoconferenceLink: videoConferenceURL, description });
           expect(vevent.getFirstPropertyValue('description')).to.contain(videoConferenceURL);
           expect(vevent.getFirstPropertyValue('description')).to.contain(description);
-          expect(videoconferenceModule.lib.videoconference.create).to.not.have.been.called;
-          expect(videoconferenceModule.lib.videoconference.getUrls).to.not.have.been.called;
           done();
         })
         .catch(done);

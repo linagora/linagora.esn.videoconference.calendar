@@ -5,48 +5,37 @@ module.exports = dependencies => {
   const videoconference = dependencies('videoconference');
   const calendar = dependencies('calendar');
 
-  return function process({ attendeeAsUser, attendeeEmail, ics, domain, emailContentOverrides = {}}) {
+  return function process({ attendeeAsUser, attendeeEmail, ics, domain, emailContentOverrides = {} }) {
     logger.info('Processing REQUEST event');
 
     const isExternalUser = !attendeeAsUser;
     const vcalendar = ICAL.Component.fromString(ics);
     const vevent = vcalendar.getFirstSubcomponent('vevent');
+    const patchEvent = isExternalUser ? patchEventForExternalUser : patchEventForInternalUser;
     const conferenceLink = getConferenceLink(vevent);
 
     if (!conferenceLink) {
+      logger.error('Can not generate public conference link');
       return Promise.resolve({ ics, attendeeAsUser, attendeeEmail, domain, emailContentOverrides });
     }
 
     emailContentOverrides.description = getDescription(vevent);
 
-    const getLink = isExternalUser ? generatePublicLink(conferenceLink, domain) : Promise.resolve(conferenceLink);
-    const patchEvent = isExternalUser ? patchEventForExternalUser : patchEventForInternalUser;
-
-    return getLink
-      .then(updatedLink => {
-        emailContentOverrides.videoconferenceLink = updatedLink;
-
-        return updatedLink;
-      })
-      .then(updatedLink => patchEvent(vevent, updatedLink, attendeeAsUser))
-      .then(() => ({ ics: vcalendar.toString(), attendeeAsUser, attendeeEmail, domain, emailContentOverrides }))
+    return patchEvent(vevent, conferenceLink, attendeeAsUser)
+      .then(() => ({
+        ics: vcalendar.toString(),
+        attendeeAsUser,
+        attendeeEmail,
+        domain,
+        emailContentOverrides
+      }))
       .catch(err => {
-        logger.error('Can not generate public conference link', err);
-
-        return { ics: vcalendar.toString(), attendeeAsUser, attendeeEmail, domain, emailContentOverrides };
+        logger.error('Failed to update the event', err);
       });
   };
 
   function getConferenceLink(vevent) {
     return vevent.getFirstPropertyValue('x-openpaas-videoconference');
-  }
-
-  function generatePublicLink(initialLink, domain) {
-    const conferenceName = initialLink.split('/').pop();
-
-    return videoconference.lib.videoconference.create({ conferenceName, domainId: domain._id, type: 'public' })
-      .then(conference => videoconference.lib.videoconference.getUrls(conference))
-      .then(urls => (urls.public));
   }
 
   function patchEventForExternalUser(vevent, link) {
@@ -79,9 +68,9 @@ module.exports = dependencies => {
 
   function translate(attendee) {
     return calendar.i18n.getI18nForMailer(attendee).then(i18nConfiguration => ({
-      please: i18nConfiguration.i18n.__({phrase: 'Please do not edit this section of the description', locale: i18nConfiguration.locale}),
-      contains: i18nConfiguration.i18n.__({phrase: 'This event contains a videoconference', locale: i18nConfiguration.locale}),
-      join: i18nConfiguration.i18n.__({phrase: 'Join the videoconference', locale: i18nConfiguration.locale})
+      please: i18nConfiguration.i18n.__({ phrase: 'Please do not edit this section of the description', locale: i18nConfiguration.locale }),
+      contains: i18nConfiguration.i18n.__({ phrase: 'This event contains a videoconference', locale: i18nConfiguration.locale }),
+      join: i18nConfiguration.i18n.__({ phrase: 'Join the videoconference', locale: i18nConfiguration.locale })
     }));
   }
 };
