@@ -1,6 +1,6 @@
 {
   "name": "linagora.esn.videoconference.calendar",
-  "version": "1.11.2-dev",
+  "version": "1.10.3",
   "description": "OpenPaaS Videoconference + Calendar Integration",
   "main": "index.js",
   "devDependencies": {
